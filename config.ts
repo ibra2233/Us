@@ -4,7 +4,7 @@
  */
 
 // 1. حدد نوع التطبيق للنسخة الحالية
-export const APP_TYPE: 'USER' | 'ADMIN' | 'DRIVER' = 'ADMIN'; 
+export const APP_TYPE: 'USER' | 'ADMIN' | 'DRIVER' = 'USER'; 
 
 // 2. إعدادات قاعدة البيانات (Supabase)
 export const DB_CONFIG = {
