@@ -1,276 +1,133 @@
 
 import React, { useState, useEffect } from 'react';
-import { Order, OrderStatus, Language } from '../types';
-import { fetchOrders, syncOrder, deleteOrder } from '../store';
-import { Search, Plus, Edit2, Trash2, X, Loader2, Save, Phone, MapPin, ShoppingBag, CreditCard, RefreshCw } from 'lucide-react';
+import { Order, Language } from '../types';
+import { fetchOrders } from '../store';
+import { Search, Loader2, Package, MapPin, ShoppingBag, CreditCard, User, Phone, Hash, Clock } from 'lucide-react';
+import TrackingMap from './TrackingMap';
 
 interface Props { lang: Language; }
 
-const AdminView: React.FC<Props> = ({ lang }) => {
+const UserView: React.FC<Props> = ({ lang }) => {
   const isAr = lang === 'ar';
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingOrder, setEditingOrder] = useState<Partial<Order> | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [searchCode, setSearchCode] = useState('');
+  const [foundOrder, setFoundOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const loadData = async () => {
+  const handleSearch = async () => {
+    if (!searchCode) return;
     setLoading(true);
-    const data = await fetchOrders();
-    setOrders(data);
+    setError('');
+    const orders = await fetchOrders();
+    const order = orders.find(o => o.orderCode.trim().toUpperCase() === searchCode.trim().toUpperCase());
+    if (order) setFoundOrder(order);
+    else { 
+      setFoundOrder(null); 
+      setError(isAr ? 'Ø¹Ø°Ø±Ø§Ù‹ØŒ ÙƒÙˆØ¯ Ø§Ù„Ø´Ø­Ù†Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯' : 'Shipment not found'); 
+    }
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadData();
-    window.addEventListener('storage', loadData);
-    return () => window.removeEventListener('storage', loadData);
-  }, []);
-
-  const handleSave = async () => {
-    if (!editingOrder?.orderCode || !editingOrder?.customerName) return;
-    setIsProcessing(true);
-    
-    const orderData = {
-      ...editingOrder,
-      id: editingOrder.id || Date.now().toString(),
-      updatedAt: Date.now(),
-      currentPhysicalLocation: editingOrder.currentPhysicalLocation || statusLabels[editingOrder.status as OrderStatus],
-      quantity: Number(editingOrder.quantity) || 1,
-      totalPrice: Number(editingOrder.totalPrice) || 0
-    } as Order;
-
-    await syncOrder(orderData);
-    setEditingOrder(null);
-    await loadData();
-    setIsProcessing(false);
-  };
-
-  const handleDeleteCurrent = async () => {
-    // إذا كان هناك ID نحذف بواسطة الـ ID، وإلا نبحث بالكود ونحذف
-    let targetId = editingOrder?.id;
-    
-    if (!targetId && editingOrder?.orderCode) {
-      const existing = orders.find(o => o.orderCode.trim().toUpperCase() === editingOrder.orderCode?.trim().toUpperCase());
-      if (existing) targetId = existing.id;
-    }
-
-    if (!targetId) {
-      alert(isAr ? 'يرجى إدخال كود شحنة موجود للحذف' : 'Please enter a valid tracking code to delete');
-      return;
-    }
-
-    if (confirm(isAr ? 'سيتم حذف كافة بيانات الشحنة نهائياً، هل أنت متأكد؟' : 'All shipment data will be deleted forever, are you sure?')) {
-      setIsProcessing(true);
-      await deleteOrder(targetId);
-      setEditingOrder(null);
-      await loadData();
-      setIsProcessing(false);
-    }
-  };
-
-  const handleFetchByCode = () => {
-    if (!editingOrder?.orderCode) return;
-    const existing = orders.find(o => o.orderCode.trim().toUpperCase() === editingOrder.orderCode?.trim().toUpperCase());
-    if (existing) {
-      setEditingOrder(existing);
-    } else {
-      alert(isAr ? 'لم يتم العثور على شحنة بهذا الكود' : 'No shipment found with this code');
-    }
-  };
-
-  const statusLabels: Record<OrderStatus, string> = {
-    'China_Store': isAr ? 'بانتظار الشحن' : 'Pending',
-    'China_Warehouse': isAr ? 'في مخزن الصين' : 'Warehouse CN',
-    'En_Route': isAr ? 'في الشحن الدولي' : 'En Route',
-    'Libya_Warehouse': isAr ? 'وصلت ليبيا' : 'Warehouse LY',
-    'Out_for_Delivery': isAr ? 'خرجت للتوصيل' : 'Out for Delivery',
-    'Delivered': isAr ? 'تم التسليم' : 'Delivered'
+  const statusLabels: Record<string, string> = {
+    'China_Store': isAr ? 'Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ø§Ù„Ø´Ø­Ù† Ù…Ù† Ø§Ù„Ù…ØªØ¬Ø±' : 'Pending Shipment',
+    'China_Warehouse': isAr ? 'ÙˆØµÙ„Øª Ù…Ø®Ø²Ù†Ù†Ø§ ÙÙŠ Ø§Ù„ØµÙŠÙ†' : 'In China Warehouse',
+    'En_Route': isAr ? 'ÙÙŠ Ø§Ù„Ø´Ø­Ù† Ø§Ù„Ø¯ÙˆÙ„ÙŠ' : 'En Route',
+    'Libya_Warehouse': isAr ? 'ÙˆØµÙ„Øª Ù…Ø®Ø§Ø²Ù†Ù†Ø§ ÙÙŠ Ù„ÙŠØ¨ÙŠØ§' : 'In Libya Warehouse',
+    'Out_for_Delivery': isAr ? 'Ø®Ø±Ø¬Øª Ù…Ø¹ Ø§Ù„Ù…Ù†Ø¯ÙˆØ¨ Ù„Ù„ØªÙˆØµÙŠÙ„' : 'Out for Delivery',
+    'Delivered': isAr ? 'ØªÙ… ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø´Ø­Ù†Ø© Ø¨Ù†Ø¬Ø§Ø­' : 'Delivered'
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto pb-32">
-      {/* القسم العلوي: البحث والإضافة */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-10">
-        <div className="flex w-full md:w-[500px] gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder={isAr ? 'بحث بالكود أو الاسم...' : 'Search...'} 
-              className="w-full pr-12 pl-4 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white outline-none focus:ring-2 ring-blue-500 transition-all shadow-inner"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <button 
-            className="px-8 bg-blue-600 text-white rounded-2xl font-black flex items-center gap-2 hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
-            onClick={loadData}
-          >
-            {isAr ? 'بحث' : 'Search'}
-          </button>
-        </div>
-        
-        <button 
-          onClick={() => setEditingOrder({ 
-            status: 'China_Store', 
-            orderCode: 'LY-', 
-            customerName: '', 
-            customerPhone: '',
-            customerAddress: '',
-            productName: '', 
-            quantity: 1,
-            totalPrice: 0 
-          })}
-          className="w-full md:w-auto px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-900/20 active:scale-95"
-        >
-          <Plus className="w-6 h-6" /> {isAr ? 'إضافة شحنة' : 'Add New'}
+    <div className="p-6 max-w-4xl mx-auto pb-24">
+      <div className="text-center mb-10">
+        <h1 className="text-4xl font-black text-slate-900 mb-2">{isAr ? 'ØªØªØ¨Ø¹ Ø´Ø­Ù†ØªÙƒ' : 'Track Package'}</h1>
+        <p className="text-slate-500">{isAr ? 'Ø£Ø¯Ø®Ù„ ÙƒÙˆØ¯ Ø§Ù„ØªØªØ¨Ø¹ Ø§Ù„Ø®Ø§Øµ Ø¨Ùƒ Ù„Ù…Ø¹Ø±ÙØ© ÙƒØ§ÙØ© Ø§Ù„ØªÙØ§ØµÙŠÙ„' : 'Enter your code to see all details'}</p>
+      </div>
+
+      <div className="bg-white p-2 rounded-[2.5rem] shadow-2xl border mb-8 flex flex-col md:flex-row gap-2">
+        <input
+          className="flex-1 px-8 py-5 bg-transparent outline-none text-2xl font-black"
+          placeholder="LY-XXXX"
+          value={searchCode}
+          onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+        />
+        <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-5 rounded-[2rem] font-black flex items-center justify-center gap-2 shadow-lg">
+          {loading ? <Loader2 className="animate-spin" /> : (isAr ? 'ØªØªØ¨Ø¹ Ø§Ù„Ø¢Ù†' : 'Track')}
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 text-blue-500 animate-spin" /></div>
-      ) : (
-        <div className="bg-slate-900/50 backdrop-blur-md rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-right border-collapse">
-              <thead>
-                <tr className="bg-slate-800 text-slate-400 uppercase text-[10px] font-black tracking-widest">
-                  <th className="px-8 py-5">{isAr ? 'كود الشحنة' : 'Code'}</th>
-                  <th className="px-8 py-5">{isAr ? 'الزبون' : 'Customer'}</th>
-                  <th className="px-8 py-5">{isAr ? 'المنتج' : 'Product'}</th>
-                  <th className="px-8 py-5">{isAr ? 'الحالة' : 'Status'}</th>
-                  <th className="px-8 py-5 text-left">{isAr ? 'إدارة' : 'Manage'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {orders.filter(o => 
-                  o.orderCode.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                  o.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-                ).map(order => (
-                  <tr key={order.id} className="hover:bg-blue-500/5 transition-colors group">
-                    <td className="px-8 py-6 font-mono font-black text-blue-400">{order.orderCode}</td>
-                    <td className="px-8 py-6">
-                      <div className="text-white font-bold">{order.customerName}</div>
-                      <div className="text-[10px] text-slate-500">{order.customerPhone}</div>
-                    </td>
-                    <td className="px-8 py-6 text-white font-bold">{order.productName}</td>
-                    <td className="px-8 py-6">
-                      <span className={`text-[10px] font-black px-4 py-1.5 rounded-full ${
-                        order.status === 'Delivered' ? 'bg-green-500/10 text-green-400' :
-                        order.status === 'Out_for_Delivery' ? 'bg-orange-500/10 text-orange-400' :
-                        'bg-blue-500/10 text-blue-400'
-                      }`}>
-                        {statusLabels[order.status]}
-                      </span>
-                    </td>
-                    <td className="px-8 py-6 text-left space-x-2 space-x-reverse">
-                      <button onClick={() => setEditingOrder(order)} className="p-3 bg-indigo-600/10 text-indigo-400 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={async () => { if(confirm(isAr ? 'حذف؟' : 'Delete?')) { await deleteOrder(order.id); loadData(); } }} className="p-3 bg-red-600/10 text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {error && <p className="text-red-500 text-center font-bold mb-6">{error}</p>}
 
-      {/* نافذة التعديل والحذف */}
-      {editingOrder && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-4xl p-8 md:p-10 shadow-2xl my-auto animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-              <div>
-                <h2 className="text-2xl font-black text-white">{isAr ? 'التحكم في البيانات' : 'Data Control'}</h2>
-                <p className="text-slate-500 text-sm mt-1">{isAr ? 'تعديل أو حذف بيانات الشحنة الحالية' : 'Edit or delete current shipment'}</p>
-              </div>
-              <button onClick={() => setEditingOrder(null)} className="p-3 bg-slate-800 rounded-full text-slate-400 hover:text-white" disabled={isProcessing}><X className="w-6 h-6" /></button>
-            </div>
+      {foundOrder && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-[2.5rem] border shadow-xl p-8 space-y-8 overflow-hidden relative">
+            <div className="absolute top-0 right-0 left-0 h-2 bg-blue-600"></div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mb-10">
-              {/* حقل الكود مع زر البحث/الجلب */}
-              <div className="md:col-span-2 bg-slate-950 p-6 rounded-3xl border border-slate-800 shadow-inner">
-                <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-2">{isAr ? 'كود التتبع (أدخل الكود ثم اضغط جلب أو حذف)' : 'Tracking Code (Enter code then fetch or delete)'}</label>
-                <div className="flex bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 focus-within:border-blue-500 transition-all">
-                  <input 
-                    className="flex-1 p-5 bg-transparent text-white outline-none font-mono text-2xl placeholder:opacity-20" 
-                    placeholder="LY-XXXX"
-                    value={editingOrder.orderCode} 
-                    onChange={e => setEditingOrder({...editingOrder, orderCode: e.target.value.toUpperCase()})} 
-                  />
-                  <button 
-                    onClick={handleFetchByCode}
-                    className="px-8 bg-blue-600 text-white font-black flex items-center gap-2 hover:bg-blue-500 transition-all active:scale-95 border-l border-slate-800"
-                  >
-                    <RefreshCw className={`w-5 h-5 ${isProcessing ? 'animate-spin' : ''}`} /> {isAr ? 'جلب البيانات' : 'Fetch'}
-                  </button>
+             <div className="flex justify-between items-center border-b pb-6">
+                <div>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{isAr ? 'Ø±Ù‚Ù… Ø§Ù„ØªØªØ¨Ø¹' : 'Tracking ID'}</p>
+                  <h2 className="text-3xl font-black text-blue-600">{foundOrder.orderCode}</h2>
                 </div>
-              </div>
+                <div className="text-left">
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{isAr ? 'Ø§Ù„Ø­Ø§Ù„Ø©' : 'Status'}</p>
+                  <span className="bg-blue-50 text-blue-600 px-4 py-1 rounded-full font-bold text-sm">
+                    {statusLabels[foundOrder.status]}
+                  </span>
+                </div>
+             </div>
 
-              {/* بيانات المستخدم */}
-              <div className="space-y-4">
-                <h3 className="text-indigo-400 font-black text-xs uppercase tracking-widest border-b border-slate-800 pb-2">{isAr ? 'بيانات الزبون' : 'User Data'}</h3>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">{isAr ? 'اسم الزبون' : 'Name'}</label>
-                  <input className="w-full p-4 bg-slate-950 rounded-2xl text-white outline-none border border-slate-800 focus:border-indigo-500" value={editingOrder.customerName} onChange={e => setEditingOrder({...editingOrder, customerName: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">{isAr ? 'رقم الهاتف' : 'Phone'}</label>
-                  <input className="w-full p-4 bg-slate-950 rounded-2xl text-white outline-none border border-slate-800 focus:border-indigo-500" value={editingOrder.customerPhone || ''} onChange={e => setEditingOrder({...editingOrder, customerPhone: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">{isAr ? 'العنوان' : 'Address'}</label>
-                  <input className="w-full p-4 bg-slate-950 rounded-2xl text-white outline-none border border-slate-800 focus:border-indigo-500" value={editingOrder.customerAddress || ''} onChange={e => setEditingOrder({...editingOrder, customerAddress: e.target.value})} />
-                </div>
-              </div>
-
-              {/* بيانات الشحنة */}
-              <div className="space-y-4">
-                <h3 className="text-indigo-400 font-black text-xs uppercase tracking-widest border-b border-slate-800 pb-2">{isAr ? 'تفاصيل الطرد' : 'Package Details'}</h3>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">{isAr ? 'اسم المنتج' : 'Product'}</label>
-                  <input className="w-full p-4 bg-slate-950 rounded-2xl text-white outline-none border border-slate-800 focus:border-indigo-500" value={editingOrder.productName || ''} onChange={e => setEditingOrder({...editingOrder, productName: e.target.value})} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">{isAr ? 'السعر' : 'Price'}</label>
-                    <input type="number" className="w-full p-4 bg-slate-950 rounded-2xl text-white outline-none border border-slate-800 focus:border-indigo-500" value={editingOrder.totalPrice || 0} onChange={e => setEditingOrder({...editingOrder, totalPrice: parseFloat(e.target.value)})} />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">{isAr ? 'Ù…Ø§Ø°Ø§ ÙŠÙˆØ¬Ø¯ ÙÙŠ Ø§Ù„Ø·Ø±Ø¯ØŸ' : 'Package Contents'}</h4>
+                  <div className="flex items-center gap-3">
+                    <ShoppingBag className="w-5 h-5 text-blue-500" />
+                    <span className="font-bold text-slate-800">{foundOrder.productName || (isAr ? 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯' : 'N/A')}</span>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">{isAr ? 'حالة الشحن' : 'Status'}</label>
-                    <select className="w-full p-4 bg-slate-950 rounded-2xl text-white outline-none border border-slate-800 focus:border-indigo-500" value={editingOrder.status} onChange={e => setEditingOrder({...editingOrder, status: e.target.value as OrderStatus})}>
-                      {Object.entries(statusLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
+                  <div className="flex items-center gap-3">
+                    <Hash className="w-5 h-5 text-blue-500" />
+                    <span className="font-bold text-slate-800">{isAr ? `Ø§Ù„ÙƒÙ…ÙŠØ©: ${foundOrder.quantity}` : `Qty: ${foundOrder.quantity}`}</span>
+                  </div>
+                  <div className="pt-2 border-t mt-2">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-emerald-600" />
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-bold">{isAr ? 'Ø§Ù„Ù…Ø¨Ù„Øº Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ' : 'Total Price'}</p>
+                        <p className="text-xl font-black text-emerald-600">{foundOrder.totalPrice} LYD</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* الأزرار النهائية */}
-            <div className="flex flex-col md:flex-row gap-4 pt-6 border-t border-slate-800">
-              <button 
-                onClick={handleSave} 
-                disabled={isProcessing}
-                className="flex-1 py-5 bg-indigo-600 text-white rounded-3xl font-black shadow-xl shadow-indigo-900/20 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-              >
-                {isProcessing ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6" />}
-                {isAr ? 'تعديل وحفظ البيانات' : 'Update & Save'}
-              </button>
-              
-              <button 
-                onClick={handleDeleteCurrent} 
-                disabled={isProcessing}
-                className="flex-1 py-5 bg-red-600 text-white rounded-3xl font-black hover:bg-red-500 transition-all flex items-center justify-center gap-2 shadow-xl shadow-red-900/20 active:scale-95 disabled:opacity-50"
-              >
-                <Trash2 className="w-6 h-6" />
-                {isAr ? 'حذف الشحنة نهائياً' : 'Delete Shipment'}
-              </button>
-            </div>
+                <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">{isAr ? 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªÙ„Ù…' : 'Receiver Info'}</h4>
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-blue-500" />
+                    <span className="font-bold text-slate-800">{foundOrder.customerName}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5 text-blue-500" />
+                    <span className="font-bold text-slate-800">{foundOrder.customerPhone || '---'}</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-blue-500 mt-1" />
+                    <span className="font-bold text-slate-800 text-sm leading-tight">{foundOrder.customerAddress || (isAr ? 'Ù„Ù… ÙŠØ­Ø¯Ø¯ Ø§Ù„Ø¹Ù†ÙˆØ§Ù† Ø¨Ø¹Ø¯' : 'No address')}</span>
+                  </div>
+                </div>
+             </div>
+
+             <div className="bg-blue-600 text-white p-6 rounded-3xl flex items-center gap-6">
+                <div className="p-3 bg-white/20 rounded-xl"><Clock className="w-8 h-8" /></div>
+                <div>
+                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">{isAr ? 'Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø­Ø§Ù„ÙŠ' : 'Current Location'}</p>
+                  <p className="text-xl font-black">{foundOrder.currentPhysicalLocation || statusLabels[foundOrder.status]}</p>
+                </div>
+             </div>
+
+             {foundOrder.status === 'Out_for_Delivery' && (
+               <div className="h-[300px] rounded-[2rem] overflow-hidden border-4 border-white shadow-2xl">
+                  <TrackingMap driverLoc={foundOrder.driverLocation} customerLoc={foundOrder.customerLocation} isSimulating={true} />
+               </div>
+             )}
           </div>
         </div>
       )}
@@ -278,4 +135,4 @@ const AdminView: React.FC<Props> = ({ lang }) => {
   );
 };
 
-export default AdminView;
+export default UserView;
