@@ -2,7 +2,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.logitrack.user',
+  appId: 'com.usertrak.user',
   appName: 'Trackuser',
   webDir: 'dist',
   bundledWebRuntime: false,
