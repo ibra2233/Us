@@ -1,133 +1,144 @@
 
 import React, { useState, useEffect } from 'react';
-import { Order, Language } from '../types';
-import { fetchOrders } from '../store';
-import { Search, Loader2, Package, MapPin, ShoppingBag, CreditCard, User, Phone, Hash, Clock } from 'lucide-react';
-import TrackingMap from './TrackingMap';
+import { Order, OrderStatus, Language } from '../types';
+import { fetchOrders, syncOrder, deleteOrder } from '../store';
+import { Search, Plus, Edit2, Trash2, X, Loader2, Save, RefreshCw } from 'lucide-react';
 
 interface Props { lang: Language; }
 
-const UserView: React.FC<Props> = ({ lang }) => {
+const AdminView: React.FC<Props> = ({ lang }) => {
   const isAr = lang === 'ar';
-  const [searchCode, setSearchCode] = useState('');
-  const [foundOrder, setFoundOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [editingOrder, setEditingOrder] = useState<Partial<Order> | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSearch = async () => {
-    if (!searchCode) return;
+  const loadData = async () => {
     setLoading(true);
-    setError('');
-    const orders = await fetchOrders();
-    const order = orders.find(o => o.orderCode.trim().toUpperCase() === searchCode.trim().toUpperCase());
-    if (order) setFoundOrder(order);
-    else { 
-      setFoundOrder(null); 
-      setError(isAr ? 'Ø¹Ø°Ø±Ø§Ù‹ØŒ ÙƒÙˆØ¯ Ø§Ù„Ø´Ø­Ù†Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯' : 'Shipment not found'); 
-    }
+    const data = await fetchOrders();
+    setOrders(data);
     setLoading(false);
   };
 
-  const statusLabels: Record<string, string> = {
-    'China_Store': isAr ? 'Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ø§Ù„Ø´Ø­Ù† Ù…Ù† Ø§Ù„Ù…ØªØ¬Ø±' : 'Pending Shipment',
-    'China_Warehouse': isAr ? 'ÙˆØµÙ„Øª Ù…Ø®Ø²Ù†Ù†Ø§ ÙÙŠ Ø§Ù„ØµÙŠÙ†' : 'In China Warehouse',
-    'En_Route': isAr ? 'ÙÙŠ Ø§Ù„Ø´Ø­Ù† Ø§Ù„Ø¯ÙˆÙ„ÙŠ' : 'En Route',
-    'Libya_Warehouse': isAr ? 'ÙˆØµÙ„Øª Ù…Ø®Ø§Ø²Ù†Ù†Ø§ ÙÙŠ Ù„ÙŠØ¨ÙŠØ§' : 'In Libya Warehouse',
-    'Out_for_Delivery': isAr ? 'Ø®Ø±Ø¬Øª Ù…Ø¹ Ø§Ù„Ù…Ù†Ø¯ÙˆØ¨ Ù„Ù„ØªÙˆØµÙŠÙ„' : 'Out for Delivery',
-    'Delivered': isAr ? 'ØªÙ… ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø´Ø­Ù†Ø© Ø¨Ù†Ø¬Ø§Ø­' : 'Delivered'
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleSave = async () => {
+    if (!editingOrder?.orderCode || !editingOrder?.customerName) {
+      alert(isAr ? 'Ø§Ù„Ø±Ø¬Ø§Ø¡ Ø¥Ø¯Ø®Ø§Ù„ ÙƒÙˆØ¯ Ø§Ù„Ø´Ø­Ù†Ø© ÙˆØ§Ø³Ù… Ø§Ù„Ø²Ø¨ÙˆÙ†' : 'Please enter code and name');
+      return;
+    }
+    setIsProcessing(true);
+    const orderData = {
+      ...editingOrder,
+      id: editingOrder.id || Date.now().toString(),
+      updatedAt: Date.now(),
+      quantity: Number(editingOrder.quantity) || 1,
+      totalPrice: Number(editingOrder.totalPrice) || 0
+    } as Order;
+
+    await syncOrder(orderData);
+    setEditingOrder(null);
+    await loadData();
+    setIsProcessing(false);
+  };
+
+  const handleFetchByCode = () => {
+    if (!editingOrder?.orderCode) return;
+    const existing = orders.find(o => o.orderCode.toUpperCase() === editingOrder.orderCode?.toUpperCase());
+    if (existing) setEditingOrder(existing);
+    else alert(isAr ? 'Ø§Ù„ÙƒÙˆØ¯ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯' : 'Code not found');
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto pb-24">
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-black text-slate-900 mb-2">{isAr ? 'ØªØªØ¨Ø¹ Ø´Ø­Ù†ØªÙƒ' : 'Track Package'}</h1>
-        <p className="text-slate-500">{isAr ? 'Ø£Ø¯Ø®Ù„ ÙƒÙˆØ¯ Ø§Ù„ØªØªØ¨Ø¹ Ø§Ù„Ø®Ø§Øµ Ø¨Ùƒ Ù„Ù…Ø¹Ø±ÙØ© ÙƒØ§ÙØ© Ø§Ù„ØªÙØ§ØµÙŠÙ„' : 'Enter your code to see all details'}</p>
-      </div>
-
-      <div className="bg-white p-2 rounded-[2.5rem] shadow-2xl border mb-8 flex flex-col md:flex-row gap-2">
-        <input
-          className="flex-1 px-8 py-5 bg-transparent outline-none text-2xl font-black"
-          placeholder="LY-XXXX"
-          value={searchCode}
-          onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
-        />
-        <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-5 rounded-[2rem] font-black flex items-center justify-center gap-2 shadow-lg">
-          {loading ? <Loader2 className="animate-spin" /> : (isAr ? 'ØªØªØ¨Ø¹ Ø§Ù„Ø¢Ù†' : 'Track')}
+    <div className="p-6 max-w-7xl mx-auto pb-32">
+      <div className="flex flex-col md:flex-row gap-4 mb-10">
+        <div className="flex-1 flex gap-2">
+          <input 
+            type="text" 
+            placeholder={isAr ? 'Ø§Ø¨Ø­Ø« Ø¨Ø§Ù„ÙƒÙˆØ¯ Ø£Ùˆ Ø§Ù„Ø§Ø³Ù…...' : 'Search...'} 
+            className="w-full px-6 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white outline-none focus:ring-2 ring-blue-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <button className="px-8 bg-blue-600 text-white rounded-2xl font-black flex items-center gap-2 hover:bg-blue-500 shadow-lg shadow-blue-900/20">
+            <Search className="w-5 h-5" /> {isAr ? 'Ø¨Ø­Ø«' : 'Search'}
+          </button>
+        </div>
+        
+        <button 
+          onClick={() => setEditingOrder({ status: 'China_Store', orderCode: 'LY-', customerName: '', quantity: 1, totalPrice: 0 })}
+          className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-emerald-500 shadow-xl shadow-emerald-900/20"
+        >
+          <Plus className="w-6 h-6" /> {isAr ? 'Ø¥Ø¶Ø§ÙØ© Ø´Ø­Ù†Ø©' : 'Add New'}
         </button>
       </div>
 
-      {error && <p className="text-red-500 text-center font-bold mb-6">{error}</p>}
+      {loading ? (
+        <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 text-blue-500 animate-spin" /></div>
+      ) : (
+        <div className="bg-slate-900/50 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl">
+          <table className="w-full text-right">
+            <thead className="bg-slate-800 text-slate-400 text-xs font-black">
+              <tr>
+                <th className="px-8 py-5">Ø§Ù„ÙƒÙˆØ¯</th>
+                <th className="px-8 py-5">Ø§Ù„Ø²Ø¨ÙˆÙ†</th>
+                <th className="px-8 py-5 text-left">Ø¥Ø¯Ø§Ø±Ø©</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {orders.filter(o => (o.orderCode || '').includes(searchTerm) || (o.customerName || '').includes(searchTerm)).map(order => (
+                <tr key={order.id} className="hover:bg-blue-500/5 transition-colors">
+                  <td className="px-8 py-6 font-mono font-black text-blue-400">{order.orderCode}</td>
+                  <td className="px-8 py-6 text-white font-bold">{order.customerName}</td>
+                  <td className="px-8 py-6 text-left flex gap-2 justify-end">
+                    <button onClick={() => setEditingOrder(order)} className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all shadow-md"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={async () => { if(confirm(isAr ? 'Ø­Ø°ÙØŸ' : 'Delete?')) { await deleteOrder(order.id); loadData(); } }} className="p-3 bg-red-600 text-white rounded-xl hover:bg-red-500 transition-all shadow-md"><Trash2 className="w-4 h-4" /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      {foundOrder && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-[2.5rem] border shadow-xl p-8 space-y-8 overflow-hidden relative">
-            <div className="absolute top-0 right-0 left-0 h-2 bg-blue-600"></div>
+      {editingOrder && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-3xl p-10 shadow-2xl relative">
+            <button onClick={() => setEditingOrder(null)} className="absolute top-8 left-8 p-2 text-slate-500 hover:text-white"><X className="w-6 h-6" /></button>
+            <h2 className="text-2xl font-black text-white mb-8">{isAr ? 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø´Ø­Ù†Ø©' : 'Order Details'}</h2>
             
-             <div className="flex justify-between items-center border-b pb-6">
-                <div>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{isAr ? 'Ø±Ù‚Ù… Ø§Ù„ØªØªØ¨Ø¹' : 'Tracking ID'}</p>
-                  <h2 className="text-3xl font-black text-blue-600">{foundOrder.orderCode}</h2>
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{isAr ? 'Ø§Ù„Ø­Ø§Ù„Ø©' : 'Status'}</p>
-                  <span className="bg-blue-50 text-blue-600 px-4 py-1 rounded-full font-bold text-sm">
-                    {statusLabels[foundOrder.status]}
-                  </span>
-                </div>
-             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-800 md:col-span-2">
+                <input className="flex-1 p-4 bg-transparent text-white text-2xl font-mono outline-none" placeholder="LY-XXXX" value={editingOrder.orderCode || ''} onChange={e => setEditingOrder({...editingOrder, orderCode: e.target.value.toUpperCase()})} />
+                <button onClick={handleFetchByCode} className="px-6 bg-blue-600 text-white rounded-xl font-black flex items-center gap-2"><RefreshCw className="w-4 h-4" /> {isAr ? 'Ø¬Ù„Ø¨' : 'Fetch'}</button>
+              </div>
+              <input className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-white" placeholder={isAr ? 'Ø§Ø³Ù… Ø§Ù„Ø²Ø¨ÙˆÙ†' : 'Customer'} value={editingOrder.customerName || ''} onChange={e => setEditingOrder({...editingOrder, customerName: e.target.value})} />
+              <input className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-white" placeholder={isAr ? 'Ø§Ø³Ù… Ø§Ù„Ù…Ù†ØªØ¬' : 'Product'} value={editingOrder.productName || ''} onChange={e => setEditingOrder({...editingOrder, productName: e.target.value})} />
+              <input type="number" className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-green-400 font-black" placeholder={isAr ? 'Ø§Ù„Ø³Ø¹Ø±' : 'Price'} value={editingOrder.totalPrice || ''} onChange={e => setEditingOrder({...editingOrder, totalPrice: parseFloat(e.target.value)})} />
+              <select className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-white" value={editingOrder.status} onChange={e => setEditingOrder({...editingOrder, status: e.target.value as OrderStatus})}>
+                <option value="China_Store">Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ø§Ù„Ø´Ø­Ù†</option>
+                <option value="China_Warehouse">ÙÙŠ Ù…Ø®Ø²Ù† Ø§Ù„ØµÙŠÙ†</option>
+                <option value="En_Route">ÙÙŠ Ø§Ù„Ø·Ø±ÙŠÙ‚</option>
+                <option value="Libya_Warehouse">ÙˆØµÙ„Øª Ù„ÙŠØ¨ÙŠØ§</option>
+                <option value="Out_for_Delivery">Ø®Ø§Ø±Ø¬ Ù„Ù„ØªÙˆØµÙŠÙ„</option>
+                <option value="Delivered">ØªÙ… Ø§Ù„ØªØ³Ù„ÙŠÙ…</option>
+              </select>
+            </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">{isAr ? 'Ù…Ø§Ø°Ø§ ÙŠÙˆØ¬Ø¯ ÙÙŠ Ø§Ù„Ø·Ø±Ø¯ØŸ' : 'Package Contents'}</h4>
-                  <div className="flex items-center gap-3">
-                    <ShoppingBag className="w-5 h-5 text-blue-500" />
-                    <span className="font-bold text-slate-800">{foundOrder.productName || (isAr ? 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯' : 'N/A')}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Hash className="w-5 h-5 text-blue-500" />
-                    <span className="font-bold text-slate-800">{isAr ? `Ø§Ù„ÙƒÙ…ÙŠØ©: ${foundOrder.quantity}` : `Qty: ${foundOrder.quantity}`}</span>
-                  </div>
-                  <div className="pt-2 border-t mt-2">
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="w-5 h-5 text-emerald-600" />
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-bold">{isAr ? 'Ø§Ù„Ù…Ø¨Ù„Øº Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ' : 'Total Price'}</p>
-                        <p className="text-xl font-black text-emerald-600">{foundOrder.totalPrice} LYD</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">{isAr ? 'Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªÙ„Ù…' : 'Receiver Info'}</h4>
-                  <div className="flex items-center gap-3">
-                    <User className="w-5 h-5 text-blue-500" />
-                    <span className="font-bold text-slate-800">{foundOrder.customerName}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-5 h-5 text-blue-500" />
-                    <span className="font-bold text-slate-800">{foundOrder.customerPhone || '---'}</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-blue-500 mt-1" />
-                    <span className="font-bold text-slate-800 text-sm leading-tight">{foundOrder.customerAddress || (isAr ? 'Ù„Ù… ÙŠØ­Ø¯Ø¯ Ø§Ù„Ø¹Ù†ÙˆØ§Ù† Ø¨Ø¹Ø¯' : 'No address')}</span>
-                  </div>
-                </div>
-             </div>
-
-             <div className="bg-blue-600 text-white p-6 rounded-3xl flex items-center gap-6">
-                <div className="p-3 bg-white/20 rounded-xl"><Clock className="w-8 h-8" /></div>
-                <div>
-                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">{isAr ? 'Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø­Ø§Ù„ÙŠ' : 'Current Location'}</p>
-                  <p className="text-xl font-black">{foundOrder.currentPhysicalLocation || statusLabels[foundOrder.status]}</p>
-                </div>
-             </div>
-
-             {foundOrder.status === 'Out_for_Delivery' && (
-               <div className="h-[300px] rounded-[2rem] overflow-hidden border-4 border-white shadow-2xl">
-                  <TrackingMap driverLoc={foundOrder.driverLocation} customerLoc={foundOrder.customerLocation} isSimulating={true} />
-               </div>
-             )}
+            <div className="flex gap-4 mt-10">
+              <button onClick={handleSave} disabled={isProcessing} className="flex-1 py-5 bg-emerald-600 text-white rounded-3xl font-black shadow-xl hover:bg-emerald-500 flex items-center justify-center gap-2 transition-all">
+                {isProcessing ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6" />}
+                {isAr ? 'Ø­ÙØ¸ ÙˆØªØ¹Ø¯ÙŠÙ„' : 'Save & Update'}
+              </button>
+              {editingOrder.id && (
+                <button onClick={async () => { if(confirm(isAr ? 'Ø­Ø°ÙØŸ' : 'Delete?')) { await deleteOrder(editingOrder.id!); setEditingOrder(null); loadData(); } }} className="px-10 py-5 bg-red-600 text-white rounded-3xl font-black hover:bg-red-500 shadow-xl flex items-center justify-center gap-2 transition-all">
+                  <Trash2 className="w-6 h-6" /> {isAr ? 'Ø­Ø°Ù' : 'Delete'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -135,4 +146,4 @@ const UserView: React.FC<Props> = ({ lang }) => {
   );
 };
 
-export default UserView;
+export default AdminView;
