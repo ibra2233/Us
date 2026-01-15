@@ -1,4 +1,4 @@
-name: Build LogiTrack Mobile
+name: Build LogiTrack Mobile (Full Clean)
 on:
   push:
     branches:
@@ -9,47 +9,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'zulu'
-          
+
       - name: Install Node Dependencies
         run: npm install
-        
+
       - name: Full Clean Environment
         run: |
-          rm -rf dist
-          rm -rf android
-          # تنظيف كامل لضمان بناء جديد
-      
+          echo "🚀 Cleaning old builds and caches..."
+          rm -rf dist                    # build القديم للويب
+          rm -rf android                 # مشروع اندرويد القديم بالكامل
+          rm -rf node_modules/.vite      # cache الخاص بـ Vite
+          rm -rf android/app/build       # build القديم للـ APK/AAB
+          echo "🧹 Clean done!"
+
       - name: Build Web Assets
         run: npm run build
-        
+
       - name: Initialize Capacitor Android
         run: |
-          npx cap add android
+          npx cap add android --force    # force ensures clean creation
           npx cap sync android
-          
+
       - name: Build Debug APK
         run: |
           cd android
+          ./gradlew clean                # تنظيف Gradle القديم
           ./gradlew assembleDebug
-          
+
       - name: Build Release Bundle (AAB)
         run: |
           cd android
+          ./gradlew clean
           ./gradlew bundleRelease
-          
-      - name: Upload Debug APK
+
+      # Optional: توقيع AAB تلقائيا إذا عندك Secrets
+      - name: Sign Release Bundle
+        if: ${{ secrets.KEYSTORE_FILE }}
+        run: |
+          cd android/app/build/outputs/bundle/release
+          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 \
+            -keystore ${{ secrets.KEYSTORE_FILE }} \
+            app-release-unsigned.aab ${{ secrets.KEY_ALIAS }} \
+            -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
+            -keypass ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload Testing APK
         uses: actions/upload-artifact@v4
         with:
           name: LogiTrack-Debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          
-      - name: Upload Release AAB
+
+      - name: Upload Play Store Bundle (AAB)
         uses: actions/upload-artifact@v4
         with:
           name: LogiTrack-Release-AAB
