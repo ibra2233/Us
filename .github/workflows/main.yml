@@ -1,4 +1,5 @@
 name: Build LogiTrack Mobile
+
 on:
   push:
     branches:
@@ -19,11 +20,11 @@ jobs:
           java-version: '17'
           distribution: 'zulu'
 
-      # 3️⃣ تثبيت Node و Dependencies
+      # 3️⃣ تثبيت Node و Dependencies (لو package-lock.json مش موجود، npm install يولده)
       - name: Install Node Dependencies
         run: npm install
 
-      # 4️⃣ تنظيف كامل للبيئة (dist + android)
+      # 4️⃣ تنظيف كامل للبيئة القديمة
       - name: Full Clean Environment
         run: |
           rm -rf dist
@@ -35,6 +36,37 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
+      # 6️⃣ إعداد Capacitor Android جديد
+      - name: Initialize Capacitor Android
+        run: |
+          npx cap add android || echo "Android platform already exists"
+          npx cap sync android
+
+      # 7️⃣ بناء APK للتجربة
+      - name: Build Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      # 8️⃣ بناء AAB (Release Bundle)
+      - name: Build Release Bundle
+        run: |
+          cd android
+          ./gradlew bundleRelease
+
+      # 9️⃣ رفع APK للتجربة
+      - name: Upload Testing APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LogiTrack-Debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      # 🔟 رفع AAB بدون توقيع
+      - name: Upload Play Store Bundle (AAB)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LogiTrack-PlayStore-AAB
+          path: android/app/build/outputs/bundle/release/app-release-unsigned.aab
       # 6️⃣ إعداد Capacitor Android جديد
       - name: Initialize Capacitor Android
         run: |
