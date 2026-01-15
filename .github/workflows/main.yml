@@ -1,9 +1,9 @@
-
 name: Build LogiTrack Mobile
 on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,6 +19,12 @@ jobs:
       - name: Install Node Dependencies
         run: npm install
         
+      - name: Full Clean Environment
+        run: |
+          rm -rf dist
+          rm -rf android
+          # تنظيف كامل لضمان بناء جديد
+      
       - name: Build Web Assets
         run: npm run build
         
@@ -27,24 +33,24 @@ jobs:
           npx cap add android
           npx cap sync android
           
-      - name: Build Debug APK (For Testing)
+      - name: Build Debug APK
         run: |
           cd android
           ./gradlew assembleDebug
           
-      - name: Build Release Bundle (For Play Store - AAB)
+      - name: Build Release Bundle (AAB)
         run: |
           cd android
           ./gradlew bundleRelease
           
-      - name: Upload Testing APK
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: LogiTrack-Testing-APK
+          name: LogiTrack-Debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           
-      - name: Upload Play Store Bundle (AAB)
+      - name: Upload Release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: LogiTrack-PlayStore-AAB
+          name: LogiTrack-Release-AAB
           path: android/app/build/outputs/bundle/release/app-release-unsigned.aab
