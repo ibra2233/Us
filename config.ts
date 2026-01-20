@@ -18,4 +18,4 @@ export const ADMIN_PASSWORD = '123';
  * 'customer' -> تطبيق تتبع للزبائن فقط (واجهة واحدة مباشرة)
  * 'admin'    -> تطبيق لوحة تحكم للشركة فقط
  */
-export const APP_TYPE: 'admin' | 'customer' = 'customer'; 
+export const APP_TYPE: 'admin' | 'customer' = 'USER'; 
