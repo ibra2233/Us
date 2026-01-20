@@ -1,100 +1,69 @@
-name: Build LogiTrack Mobile
+
+name: Build and Deploy LogiTrack (Web & App)
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # 1️⃣ استنساخ المستودع
-      - uses: actions/checkout@v4
+      - name: 1️⃣ Checkout Code
+        uses: actions/checkout@v4
 
-      # 2️⃣ إعداد JDK 17
-      - name: Set up JDK 17
+      - name: 2️⃣ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 3️⃣ Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'zulu'
 
-      # 3️⃣ تثبيت Node و Dependencies (لو package-lock.json مش موجود، npm install يولده)
-      - name: Install Node Dependencies
+      - name: 4️⃣ Install Dependencies
         run: npm install
 
-      # 4️⃣ تنظيف كامل للبيئة القديمة
-      - name: Full Clean Environment
-        run: |
-          rm -rf dist
-          rm -rf android
-          rm -rf node_modules/.vite
-          echo "تم حذف كل الملفات القديمة"
-
-      # 5️⃣ بناء واجهة الويب
-      - name: Build Web Assets
+      - name: 5️⃣ Build Web Assets
         run: npm run build
 
-      # 6️⃣ إعداد Capacitor Android جديد
-      - name: Initialize Capacitor Android
+      # --- نشر الموقع الإلكتروني (GitHub Pages) ---
+      - name: 6️⃣ Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: 7️⃣ Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      # --- بناء تطبيق الأندرويد (APK) ---
+      - name: 8️⃣ Initialize & Sync Capacitor
         run: |
-          npx cap add android || echo "Android platform already exists"
+          # التحقق مما إذا كان مجلد أندرويد موجوداً، إذا لم يكن موجوداً يتم إضافته
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          # مزامنة الملفات المبنية (dist) مع مشروع الأندرويد
           npx cap sync android
 
-      # 7️⃣ بناء APK للتجربة
-      - name: Build Debug APK
+      - name: 9️⃣ Build Android APK
         run: |
           cd android
+          # إعطاء صلاحية التنفيذ لملف gradlew
+          chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 8️⃣ بناء AAB (Release Bundle)
-      - name: Build Release Bundle
-        run: |
-          cd android
-          ./gradlew bundleRelease
-
-      # 9️⃣ رفع APK للتجربة
-      - name: Upload Testing APK
+      - name: 🔟 Upload APK for Download
         uses: actions/upload-artifact@v4
         with:
-          name: LogiTrack-Debug-APK
+          name: LogiTrack-Latest-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-
-      # 🔟 رفع AAB بدون توقيع
-      - name: Upload Play Store Bundle (AAB)
-        uses: actions/upload-artifact@v4
-        with:
-          name: LogiTrack-PlayStore-AAB
-          path: android/app/build/outputs/bundle/release/app-release-unsigned.aab
-      # 6️⃣ إعداد Capacitor Android جديد
-      - name: Initialize Capacitor Android
-        run: |
-          npx cap add android
-          npx cap sync android
-
-      # 7️⃣ بناء APK للتجربة
-      - name: Build Debug APK
-        run: |
-          cd android
-          ./gradlew assembleDebug
-
-      # 8️⃣ بناء AAB (Release Bundle)
-      - name: Build Release Bundle
-        run: |
-          cd android
-          ./gradlew bundleRelease
-
-      # 9️⃣ رفع APK للتجربة
-      - name: Upload Testing APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: LogiTrack-Debug-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-
-      # 🔟 رفع AAB بدون توقيع
-      - name: Upload Play Store Bundle (AAB)
-        uses: actions/upload-artifact@v4
-        with:
-          name: LogiTrack-PlayStore-AAB
-          path: android/app/build/outputs/bundle/release/app-release-unsigned.aab
