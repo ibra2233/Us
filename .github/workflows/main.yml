@@ -1,4 +1,3 @@
-
 name: Build and Deploy LogiTrack (Web & App)
 
 on:
@@ -6,13 +5,23 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# الصلاحيات المطلوبة للنشر على GitHub Pages وتحميل الملفات
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# منع التداخل في عمليات النشر
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
+    # تحديد بيئة العمل لربطها بإعدادات GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: 1️⃣ Checkout Code
@@ -35,7 +44,7 @@ jobs:
       - name: 5️⃣ Build Web Assets
         run: npm run build
 
-      # --- نشر الموقع الإلكتروني (GitHub Pages) ---
+      # --- الجزء الأول: نشر الموقع (GitHub Pages) ---
       - name: 6️⃣ Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -45,20 +54,18 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      # --- بناء تطبيق الأندرويد (APK) ---
+      # --- الجزء الثاني: بناء التطبيق (Android APK) ---
       - name: 8️⃣ Initialize & Sync Capacitor
         run: |
-          # التحقق مما إذا كان مجلد أندرويد موجوداً، إذا لم يكن موجوداً يتم إضافته
+          # التحقق من وجود المنصة قبل المحاولة
           if [ ! -d "android" ]; then
             npx cap add android
           fi
-          # مزامنة الملفات المبنية (dist) مع مشروع الأندرويد
           npx cap sync android
 
       - name: 9️⃣ Build Android APK
         run: |
           cd android
-          # إعطاء صلاحية التنفيذ لملف gradlew
           chmod +x gradlew
           ./gradlew assembleDebug
 
