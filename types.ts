@@ -1,16 +1,16 @@
 
 export type OrderStatus = 
-  | 'Pending_Inspection'    // فحص السلعة (المرحلة 1)
-  | 'Payment_Completed'     // إتمام عملية الدفع (المرحلة 2)
-  | 'Accepted'              // قبول السلعة
-  | 'China_Warehouse'       // شحن السلعة للمخزن
-  | 'China_Transit'         // مركز العبور الصين
-  | 'En_Route'              // في الطريق لليبيا
-  | 'Libya_Arrived'         // وصول السلعة لليبيا
-  | 'Libya_Warehouse'       // مخزن ليبيا
-  | 'Processing_LY'         // قيد المعالجة في ليبيا
-  | 'Out_for_Delivery'      // مع المندوب
-  | 'Delivered';            // تم التسليم (كن جاهزاً اليوم)
+  | 'Pending_Inspection'    // 1. فحص السلعة
+  | 'Payment_Completed'     // 2. إتمام عملية الدفع
+  | 'Accepted'              // 3. قبول السلعة
+  | 'China_Warehouse'       // 4. شحن السلعة للمخزن
+  | 'China_Transit'         // 5. مركز العبور الصين
+  | 'En_Route'              // 6. في الطريق لليبيا
+  | 'Libya_Arrived'         // 7. وصول السلعة لليبيا
+  | 'Libya_Warehouse'       // 8. مخزن ليبيا
+  | 'Processing_LY'         // 9. قيد المعالجة في ليبيا
+  | 'Out_for_Delivery'      // 10. مع المندوب
+  | 'Delivered';            // 11. تم التسليم
 
 export type PaymentMethod = 'Cash_China' | 'Credit_Card';
 
